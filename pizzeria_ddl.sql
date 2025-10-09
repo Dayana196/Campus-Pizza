@@ -1,75 +1,118 @@
-CREATE DATABASE IF NOT EXISTS `pizzeria_campus`
-
-USE `pizzeria_campus`;
-
-CREATE TABLE `Productos` (
-    `producto_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `nombre` VARCHAR(50) NOT NULL,
-    `precio` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+CREATE TABLE `productos`(
+    `id_producto` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `precio` INT NOT NULL,
+    `nombre_producto` VARCHAR(100) NOT NULL
 );
+
 CREATE TABLE `pedidos`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `nombre_pedido_fk` BIGINT NOT NULL,
-    `usuarios_id` int DEFAULT NULL,
-    `precio` decimal(10,2) DEFAULT NULL,
-    `fecha_pedido_fk` DATE NOT NULL,
-    `especificaciones` ENUM ('domicilio para llevar', 'Pedido para aca') DEFAULT 'pedido para aca' NOT NULL,
-    PRIMARY KEY ('nombre_pedido_fk'), REFERENCES `productos` ('usuarios_id') 
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `nombre` BIGINT NOT NULL,
+    `precio` INT NOT NULL,
+    `estado` ENUM(
+        'en_camino',
+        'despachado',
+        'entregado',
+        'preparacion',
+        'devolucion...'
+    ) NOT NULL DEFAULT 'entregado'
 );
+
+ALTER TABLE
+    `pedidos` ADD CONSTRAINT `pedidos_nombre_foreign` FOREIGN KEY(`nombre`) REFERENCES `ordenes`(`id`);
 
 CREATE TABLE `usuarios`(
-    `usuario_id` int NOT NULL AUTO_INCREMENT;
-    `nombre` VARCHAR(50) DEFAULT NULL,
-    `apellido` VARCHAR(50) DEFAULT NULL,
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `nombre` VARCHAR(100) NOT NULL,
     `telefono` VARCHAR(100) NOT NULL,
-    PRIMARY KEY (`usuario_id`)
+    `correo` BIGINT NOT NULL
 );
-ALTER TABLE
-    `usuarios` ADD UNIQUE `usuarios_telefono_unique`(`telefono`);
+
+ALTER TABLE `usuarios` ADD UNIQUE `usuarios_telefono_unique`(`telefono`);
+
+ALTER TABLE `usuarios` ADD CONSTRAINT `usuarios_nombre_foreign` FOREIGN KEY(`nombre`) REFERENCES `ordenes`(`cliente_fk`);
+
 
 CREATE TABLE `menu`(
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `nombre_producto_fk` BIGINT NOT NULL,
-    `nombre_combo_fk` BIGINT NOT NULL
+    `producto_fk` BIGINT NOT NULL,
+    `Precio` INT NOT NULL,
+    `combo_adicional` BIGINT NOT NULL,
+    `categoria` ENUM('bebidas', 'pizza', 'adicionales') NOT NULL
 );
+
+ALTER TABLE `menu` ADD CONSTRAINT `menu_producto_fk_foreign` FOREIGN KEY(`producto_fk`) REFERENCES `productos`(`id_producto`);
+
+ALTER TABLE
+    `menu` ADD CONSTRAINT `menu_precio_foreign` FOREIGN KEY(`Precio`) REFERENCES `combos`(`id`);
+
 CREATE TABLE `combos`(
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     `precio` INT NOT NULL,
-    `nombre` BIGINT NOT NULL
+    `nombre` ENUM(
+        'familiar',
+        'personal',
+        'extra',
+        'mini'
+    ) NOT NULL DEFAULT 'familiar'
 );
+
 CREATE TABLE `ordenes`(
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `nombre_menu_fk` BIGINT NOT NULL,
-    `nombre_cliente_fk` BIGINT NOT NULL,
-    `nombre_adicional_fk` BIGINT NOT NULL
+    `cliente_fk` BIGINT NOT NULL,
+    `precio` BIGINT NOT NULL,
+    `fecha_orden` BIGINT NOT NULL
 );
+
 CREATE TABLE `ingredientes`(
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `nombre_ingredintes` VARCHAR(100) NOT NULL
+    `ingredintesvarchar(100)` ENUM('queso', 'piña', 'pepperoni', 'tomate') NOT NULL DEFAULT 'queso'
 );
-CREATE TABLE `prepearacion`(
+
+CREATE TABLE `preparacion`(
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `nombre_ingredientes_fk` BIGINT NOT NULL,
-    `nombre_producto_fk` BIGINT NOT NULL
+    `ingredientes_fk` BIGINT NOT NULL,
+    `producto_fk` BIGINT NOT NULL
 );
+
+ALTER TABLE
+    `preparacion` ADD CONSTRAINT `preparacion_producto_fk_foreign` FOREIGN KEY(`producto_fk`) REFERENCES `productos`(`id_producto`);
+
 CREATE TABLE `adicional`(
     `id_extra` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `nombre_adicional` VARCHAR(100) NOT NULL,
+    `adicional` VARCHAR(100) NOT NULL,
     `valor` INT NOT NULL
 );
-ALTER TABLE
-    `ordenes` ADD CONSTRAINT `ordenes_nombre_menu_fk_foreign` FOREIGN KEY(`nombre_menu_fk`) REFERENCES `menu`(`id`);
-ALTER TABLE
-    `usuarios` ADD CONSTRAINT `usuarios_nombre_foreign` FOREIGN KEY(`nombre`) REFERENCES `ordenes`(`nombre_cliente_fk`);
-ALTER TABLE
-    `adicional` ADD CONSTRAINT `adicional_valor_foreign` FOREIGN KEY(`valor`) REFERENCES `ordenes`(`nombre_adicional_fk`);
-ALTER TABLE
-    `menu` ADD CONSTRAINT `menu_nombre_combo_fk_foreign` FOREIGN KEY(`nombre_combo_fk`) REFERENCES `combos`(`id`);
-ALTER TABLE
-    `prepearacion` ADD CONSTRAINT `prepearacion_nombre_producto_fk_foreign` FOREIGN KEY(`nombre_producto_fk`) REFERENCES `productos`(`id_producto`);
-ALTER TABLE
-    `pedidos` ADD CONSTRAINT `pedidos_nombre_pedido_fk_foreign` FOREIGN KEY(`nombre_pedido_fk`) REFERENCES `ordenes`(`id`);
-ALTER TABLE
-    `menu` ADD CONSTRAINT `menu_nombre_producto_fk_foreign` FOREIGN KEY(`nombre_producto_fk`) REFERENCES `productos`(`id_producto`);
-ALTER TABLE
-    `ingredientes` ADD CONSTRAINT `ingredientes_nombre_ingredintes_foreign` FOREIGN KEY(`nombre_ingredintes`) REFERENCES `prepearacion`(`nombre_ingredientes_fk`);
+
+ALTER TABLE `adicional` ADD CONSTRAINT `adicional_valor_foreign` FOREIGN KEY(`valor`) REFERENCES `ordenes`(`precio`);
+
+CREATE TABLE `transacciones`(
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `pago` ENUM(
+        'targeta_credito',
+        'targeta_debito',
+        'nequi',
+        'bancolombia....'
+    ) NOT NULL DEFAULT 'nequi',
+    `cliente` BIGINT NOT NULL,
+    `fecha_pago` BIGINT NOT NULL
+);
+
+ALTER TABLE `ingredientes` ADD CONSTRAINT `ingredientes_ingredintesvarchar(100)_foreign` FOREIGN KEY(`ingredintesvarchar(100)`) REFERENCES `preparacion`(`ingredientes_fk`);
+
+
+CREATE TABLE `pago_ordenes`(
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `orden` BIGINT NOT NULL,
+    `transaccion` BIGINT NOT NULL
+);
+
+ALTER TABLE `pago_ordenes` ADD CONSTRAINT `pago_ordenes_transaccion_foreign` FOREIGN KEY(`transaccion`) REFERENCES `transacciones`(`id`);
+
+
+ALTER TABLE `pago_ordenes` ADD CONSTRAINT `pago_ordenes_orden_foreign` FOREIGN KEY(`orden`) REFERENCES `ordenes`(`id`);
+
+
+
+
+
+
