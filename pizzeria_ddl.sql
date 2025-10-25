@@ -1,118 +1,165 @@
-CREATE TABLE `productos`(
-    `id_producto` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `precio` INT NOT NULL,
-    `nombre_producto` VARCHAR(100) NOT NULL
-);
+-- productos mas vendidos
 
-CREATE TABLE `pedidos`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `nombre` BIGINT NOT NULL,
-    `precio` INT NOT NULL,
-    `estado` ENUM(
-        'en_camino',
-        'despachado',
-        'entregado',
-        'preparacion',
-        'devolucion...'
-    ) NOT NULL DEFAULT 'entregado'
-);
+SELECT p.nombre, SUM(pi.cantidad) AS cantidad_vendida
+FROM pedido_item pi
+JOIN producto_variant pv ON pi.id_variant = pv.id_variant
+JOIN producto p ON pv.id_producto = p.id_producto
+GROUP BY p.nombre
+ORDER BY cantidad_vendida DESC;
 
-ALTER TABLE
-    `pedidos` ADD CONSTRAINT `pedidos_nombre_foreign` FOREIGN KEY(`nombre`) REFERENCES `ordenes`(`id`);
+-- ingresos generados por cada combo
 
-CREATE TABLE `usuarios`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `nombre` VARCHAR(100) NOT NULL,
-    `telefono` VARCHAR(100) NOT NULL,
-    `correo` BIGINT NOT NULL
-);
+SELECT c.nombre AS combo_nombre, SUM(pi.subtotal) AS total_ingresos
+FROM combo_item ci
+JOIN combo c ON ci.id_combo = c.id_combo
+JOIN pedido_item pi ON ci.id_variant = pi.id_variant
+GROUP BY c.nombre;
 
-ALTER TABLE `usuarios` ADD UNIQUE `usuarios_telefono_unique`(`telefono`);
+-- recoger vs. comer en la pizzería
 
-ALTER TABLE `usuarios` ADD CONSTRAINT `usuarios_nombre_foreign` FOREIGN KEY(`nombre`) REFERENCES `ordenes`(`cliente_fk`);
+SELECT tipo_entrega, COUNT(*) AS cantidad_pedidos
+FROM pedido
+GROUP BY tipo_entrega;
 
+-- Adiciones más solicitadas en pedidos personalizados
 
-CREATE TABLE `menu`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `producto_fk` BIGINT NOT NULL,
-    `Precio` INT NOT NULL,
-    `combo_adicional` BIGINT NOT NULL,
-    `categoria` ENUM('bebidas', 'pizza', 'adicionales') NOT NULL
-);
+SELECT a.nombre AS adicion_nombre, SUM(pia.cantidad) AS cantidad_solicitada
+FROM pedido_item_adicion pia
+JOIN adicion a ON pia.id_adicion = a.id_adicion
+GROUP BY a.nombre
+ORDER BY cantidad_solicitada DESC;
 
-ALTER TABLE `menu` ADD CONSTRAINT `menu_producto_fk_foreign` FOREIGN KEY(`producto_fk`) REFERENCES `productos`(`id_producto`);
+-- Cantidad total de productos vendidos por categoría
 
-ALTER TABLE
-    `menu` ADD CONSTRAINT `menu_precio_foreign` FOREIGN KEY(`Precio`) REFERENCES `combos`(`id`);
+SELECT p.tipo, SUM(pi.cantidad) AS cantidad_vendida
+FROM pedido_item pi
+JOIN producto_variant pv ON pi.id_variant = pv.id_variant
+JOIN producto p ON pv.id_producto = p.id_producto
+GROUP BY p.tipo;
 
-CREATE TABLE `combos`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `precio` INT NOT NULL,
-    `nombre` ENUM(
-        'familiar',
-        'personal',
-        'extra',
-        'mini'
-    ) NOT NULL DEFAULT 'familiar'
-);
+-- Promedio de pizzas pedidas por cliente
 
-CREATE TABLE `ordenes`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `cliente_fk` BIGINT NOT NULL,
-    `precio` BIGINT NOT NULL,
-    `fecha_orden` BIGINT NOT NULL
-);
+SELECT p.id_cliente, AVG(pi.cantidad) AS promedio_pizzas
+FROM pedido_item pi
+JOIN producto_variant pv ON pi.id_variant = pv.id_variant
+JOIN producto prod ON pv.id_producto = prod.id_producto
+JOIN pedido p ON pi.id_pedido = p.id_pedido
+WHERE prod.tipo = 'Pizza'
+GROUP BY p.id_cliente;
 
-CREATE TABLE `ingredientes`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `ingredintesvarchar(100)` ENUM('queso', 'piña', 'pepperoni', 'tomate') NOT NULL DEFAULT 'queso'
-);
+-- Total de ventas por día de la semana
 
-CREATE TABLE `preparacion`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `ingredientes_fk` BIGINT NOT NULL,
-    `producto_fk` BIGINT NOT NULL
-);
+SELECT DAYOFWEEK(fecha_pedido) AS dia_semana, SUM(total) AS total_ventas
+FROM pedido
+GROUP BY dia_semana
+ORDER BY dia_semana;
 
-ALTER TABLE
-    `preparacion` ADD CONSTRAINT `preparacion_producto_fk_foreign` FOREIGN KEY(`producto_fk`) REFERENCES `productos`(`id_producto`);
+-- Cantidad de panzarottis vendidos con extra queso
 
-CREATE TABLE `adicional`(
-    `id_extra` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `adicional` VARCHAR(100) NOT NULL,
-    `valor` INT NOT NULL
-);
+SELECT SUM(pi.cantidad) AS cantidad_vendida
+FROM pedido_item pi
+JOIN producto_variant pv ON pi.id_variant = pv.id_variant
+JOIN producto p ON pv.id_producto = p.id_producto
+JOIN pedido_item_adicion pia ON pi.id_pedido_item = pia.id_pedido_item
+JOIN adicion a ON pia.id_adicion = a.id_adicion
+WHERE p.nombre = 'Panzarotti de Pollo' AND a.nombre = 'Extra Queso';
 
-ALTER TABLE `adicional` ADD CONSTRAINT `adicional_valor_foreign` FOREIGN KEY(`valor`) REFERENCES `ordenes`(`precio`);
+-- Pedidos que incluyen bebidas como parte de un combo
 
-CREATE TABLE `transacciones`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `pago` ENUM(
-        'targeta_credito',
-        'targeta_debito',
-        'nequi',
-        'bancolombia....'
-    ) NOT NULL DEFAULT 'nequi',
-    `cliente` BIGINT NOT NULL,
-    `fecha_pago` BIGINT NOT NULL
-);
+SELECT DISTINCT pi.id_pedido
+FROM pedido_item pi
+JOIN producto_variant pv ON pi.id_variant = pv.id_variant
+JOIN producto p ON pv.id_producto = p.id_producto
+WHERE p.tipo = 'Bebida';
 
-ALTER TABLE `ingredientes` ADD CONSTRAINT `ingredientes_ingredintesvarchar(100)_foreign` FOREIGN KEY(`ingredintesvarchar(100)`) REFERENCES `preparacion`(`ingredientes_fk`);
+-- Clientes que han realizado más de 5 pedidos en el último mes
 
+SELECT id_cliente, COUNT(*) AS cantidad_pedidos
+FROM pedido
+WHERE fecha_pedido > NOW() - INTERVAL 1 MONTH
+GROUP BY id_cliente
+ORDER BY cantidad_pedidos DESC;
 
-CREATE TABLE `pago_ordenes`(
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    `orden` BIGINT NOT NULL,
-    `transaccion` BIGINT NOT NULL
-);
+-- Ingresos totales
 
-ALTER TABLE `pago_ordenes` ADD CONSTRAINT `pago_ordenes_transaccion_foreign` FOREIGN KEY(`transaccion`) REFERENCES `transacciones`(`id`);
+SELECT SUM(p.total) AS total_ingresos
+FROM pedido p
+JOIN pedido_item pi ON p.id_pedido = pi.id_pedido
+JOIN producto_variant pv ON pi.id_variant = pv.id_variant
+JOIN producto prod ON pv.id_producto = prod.id_producto
+WHERE prod.tipo IN ('Bebida', 'Postre', 'Otro');
 
+-- Promedio de adiciones por pedido
 
-ALTER TABLE `pago_ordenes` ADD CONSTRAINT `pago_ordenes_orden_foreign` FOREIGN KEY(`orden`) REFERENCES `ordenes`(`id`);
+SELECT AVG(adiciones_por_pedido) AS promedio_adiciones
+FROM (
+    SELECT COUNT(*) AS adiciones_por_pedido
+    FROM pedido_item pi
+    JOIN pedido_item_adicion pia ON pi.id_pedido_item = pia.id_pedido_item
+    GROUP BY pi.id_pedido
+) AS subquery;
 
+-- Total de combos vendidos en el último mes
 
+SELECT SUM(pi.cantidad) AS total_combos_vendidos
+FROM pedido_item pi
+JOIN combo_item ci ON pi.id_combo = ci.id_combo
+JOIN pedido p ON pi.id_pedido = p.id_pedido
+WHERE p.fecha_pedido > NOW() - INTERVAL 1 MONTH;
 
+-- Clientes con pedidos tanto para recoger como para consumir en el lugar
 
+SELECT id_cliente, tipo_entrega, COUNT(*) AS cantidad_pedidos
+FROM pedido
+WHERE tipo_entrega IN ('Recoger', 'Local')
+GROUP BY id_cliente, tipo_entrega;
 
+-- Total de productos personalizados con adiciones
 
+SELECT COUNT(DISTINCT pi.id_pedido_item) AS total_personalizados
+FROM pedido_item pi
+JOIN pedido_item_adicion pia ON pi.id_pedido_item = pia.id_pedido_item;
+
+-- Pedidos con más de 3 productos diferentes
+
+SELECT id_pedido, COUNT(DISTINCT id_variant) AS cantidad_productos_diferentes
+FROM pedido_item
+GROUP BY id_pedido
+HAVING cantidad_productos_diferentes > 2;
+
+-- Promedio de ingresos generados por día
+
+SELECT AVG(dia_ingresos) AS promedio_ingresos_diarios
+FROM (
+    SELECT SUM(total) AS dia_ingresos
+    FROM pedido
+    GROUP BY DATE(fecha_pedido)
+) AS subquery;
+
+-- Clientes que han pedido pizzas con adiciones en más del 50% de sus pedidos
+
+SELECT p2.id_cliente
+FROM pedido_item pi
+JOIN pedido_item_adicion pia ON pi.id_pedido_item = pia.id_pedido_item
+JOIN producto_variant pv ON pi.id_variant = pv.id_variant
+JOIN producto prd ON pv.id_producto = prd.id_producto
+JOIN pedido p2 ON pi.id_pedido = p2.id_pedido
+WHERE prd.tipo = 'Pizza'
+GROUP BY p2.id_cliente
+HAVING COUNT(DISTINCT pia.id_pedido_item) / COUNT(DISTINCT pi.id_pedido_item) > 0.5;
+
+-- Porcentaje de ventas provenientes de productos no elaborados
+
+SELECT (SUM(CASE WHEN p.tipo IN ('Bebida', 'Postre', 'Otro') THEN pi.subtotal ELSE 0 END) / SUM(pi.subtotal)) * 100 AS porcentaje_ventas_no_elaborados
+FROM pedido_item pi
+JOIN producto_variant pv ON pi.id_variant = pv.id_variant
+JOIN producto p ON pv.id_producto = p.id_producto;
+
+-- Día de la semana con mayor número de pedidos para recoger
+
+SELECT DAYOFWEEK(fecha_pedido) AS dia_semana, COUNT(*) AS cantidad_pedidos
+FROM pedido
+WHERE tipo_entrega = 'Recoger'
+GROUP BY dia_semana
+ORDER BY cantidad_pedidos DESC
+LIMIT 1;
